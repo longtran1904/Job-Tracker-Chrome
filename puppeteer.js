@@ -1,5 +1,6 @@
 const express = require('express');
 const puppeteer = require('puppeteer');
+const { parse } = require('himalaya');
 
 const app = express();
 const url = 'http://quotes.toscrape.com/';
@@ -106,6 +107,30 @@ app.get('/google-openings', async(req, res) => {
         }, url)
 
         res.send({ openings });
+    } catch (error) {
+        if (!res.headersSent) {
+            res.status(400).send(error.message);
+        }
+    } finally {
+        if (browser) {
+            browser.close();
+        }
+    }
+})
+
+app.get('/allHTML', async(req, res) => {
+    let browser = null;
+    try {
+        browser = await puppeteer.launch({ headless: false });
+        const page = await browser.newPage();
+        await page.goto('https://careers.google.com/jobs/results/?distance=50&has_remote=false&hl=en_US&jlo=en_US&q=Software%20Engineer', { waitUntil: 'domcontentloaded' });
+
+        await waitTillHTMLRendered(page);
+
+        // const data = await page.evaluate(() => document.querySelector('*').outerHTML);
+        const data = await page.content();
+        const jsonData = parse(data);
+        res.send({ jsonData });
     } catch (error) {
         if (!res.headersSent) {
             res.status(400).send(error.message);
