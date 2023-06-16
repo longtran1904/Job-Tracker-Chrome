@@ -32,16 +32,29 @@ const waitTillHTMLRendered = async(page, timeout = 30000) => {
     }
 };
 
+let host = "";
+let path = "";
+function split_url(url) {
+    url_object = new URL(url);
+    host = url_object.host;
+    path = url_object.pathname;
+}
+
 // const url = 'https://careers.google.com/jobs/results/?distance=50&has_remote=false&hl=en_US&jlo=en_US&q=Software%20Engineer';
 const crawl_google = async(url) => {
+    // get url host and path
+    split_url(url);
+    // console.log('crawling host... ' + host);
+
     console.log('Came to spider service with url ' + url);
     let browser = null;
+    let page_count = 1;
+    let next_page = "";
+    let all_openings = []
     try {
         browser = await puppeteer.launch({ headless: true });
         const page = await browser.newPage();
-
-        const all_openings = [];
-        while (true) {
+        do {
             await page.goto(url);
 
             await waitTillHTMLRendered(page);
@@ -56,7 +69,8 @@ const crawl_google = async(url) => {
                 return data ? data : null;
             }, url)
 
-            const next = await page.evaluate(() => {
+            next_page = "";
+            next_page = await page.evaluate(() => {
                 const linkBlocks = Array.from(document.getElementsByTagName('a'));
                 var nextLink = '';
                 for (link of linkBlocks) {
@@ -68,15 +82,15 @@ const crawl_google = async(url) => {
                 return nextLink;
             });
 
-
-            console.log(openings);
-            console.log(next);
-
-            all_openings.push(openings);
+            const pageNumber = 'page_' + page_count;
+            page_count += 1;
+            const page_obj = {};
+            page_obj[pageNumber] = openings;
+            all_openings.push(page_obj);
             // console.log('got openings: \n' + openings);
-
-            break;
-        }
+            url = 'https://' + host + next_page;
+            console.log('next page pathname: ' + next_page);
+        } while (next_page);
 
         return all_openings;
     } catch (error) {
